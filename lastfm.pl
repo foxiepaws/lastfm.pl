@@ -7,11 +7,14 @@ use LWP::UserAgent;
 use List::MoreUtils qw{uniq};
 use Encode;
 use Carp;
-use JSON;
+
+use JSON::XS;
+use Net::LastFM;
 
 binmode STDOUT, ":utf8";
+
 # I'm gonna call 1.0 here, just because kovensky never had $VERSION.
-our $VERSION = '1.0.1';
+our $VERSION = '1.0.1-devel.2013.6.2';
 our %IRSSI = (
 	authors		=> 'foxiepaws, Kovensky',
 	contact		=> 'fox@foxiepa.ws',
@@ -161,7 +164,9 @@ sub artist_gettoptags { # for artist.gettoptags API call
 		get_last_fm_data($tag, $$res{arid} ? 'mbid' : 'artist',  $name);
 	});
 }
-
+##
+# TODO: change to new lastfm API (not Net::LastFM as this is basically identical.), Also check if lastfm is fucked and send a message there instead. 
+##
 sub get_last_fm_data {
 	my $method = shift;
 	my %params;
@@ -187,7 +192,7 @@ sub get_last_fm_data {
 	return decode_json $resp->content if $resp->is_success;
 	undef;
 }
-
+ 
 sub usercompare {
 	my @user = @_[0,1];
 
@@ -203,7 +208,9 @@ sub usercompare {
 	}
 	return $str;
 }
-
+##
+# TODO: Create cleaner way of doing this. 
+##
 sub get_user_np {
 	my $user = shift;
 
@@ -259,6 +266,9 @@ sub _secs_to_mins {
 	return sprintf "%02d:%02d", $s / 60, $s % 60;
 }
 
+##
+# TODO: make this user customisable
+##
 sub format_user_np {
 	my ($user, $data) = @_;
 
@@ -305,7 +315,9 @@ sub now_playing {
 	elsif ($$np{warn}) { return $ignerr ? $$np{warn} : '' }
 	else { return format_user_np($user, $np) }
 }
-
+##
+# todo: make this non-functional, Functional Perl is fun but fuck, This is NOT THE PLACE
+## 
 sub whats_playing {
 	my ($server, $target) = @_;
 	my $chan = $server->channel_find($target);
