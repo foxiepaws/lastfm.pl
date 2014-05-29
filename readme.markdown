@@ -11,8 +11,8 @@ All commands have a prefix, this is set in irssi using `/set lfmb_prefix <prefix
 
 * `np [username]`     - shows your currently playing song, or of another 
 user if specified
-* `compare <u1> [u2]`   - compares yourself with u1 (another user) if u2 
-isn't specified compares u1 with u2 if both are given.
+* `compare <u1> [u2]`   - compares yourself with `u1` (another user) if 
+`u2` isn't specified compares `u1` with `u2` if both are given.
 * `setuser <user>`      - associates the `<user>` last.fm username with your nickname. the two argument form is only available to the owner.
 * whois `<username>`    - given a last.fm username, return all nicknames 
 that are associated to it.
