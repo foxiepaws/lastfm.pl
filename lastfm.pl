@@ -290,7 +290,7 @@ sub format_user_np {
 	$str .= "\x037\x02$$data{album}\x02\x03 - " if $$data{album};
 	$str .= "\x037\x02" . $$data{name} . "\x02\x03";
 	if($$data{count}) {
-		$str .= " [". ($$data{loved} ? "\x0304<3\x03 - " : "") ."playcount $$data{count}x]" ;
+		$str .= " [". ($$data{loved} ? "\x0304♥\x03 - " : "") ."playcount $$data{count}x]" ;
 	}
 	$str .= " (\x0310\x02". join( "\x02\x03, \x0310\x02", @{$$data{tags}} ) ."\x02\x03)" if $$data{tags} && @{$$data{tags}};
 	$str .= " [\x037\x02";
