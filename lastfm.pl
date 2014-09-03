@@ -14,14 +14,6 @@ binmode STDOUT, ":utf8";
 
 our $VERSION = '2.0.0-alpha';
 
-# hack: get git version 
-my $path = __FILE__;
-$path =~ s/lastfm.pl$//;
-my $gitver = `git -C $path show -s --pretty=oneline`;
-$gitver =~ s/(.*?)\s.*/$1/;
-$VERSION = "git:$gitver" unless ($gitver eq "");
-##
-
 our %IRSSI = (
 	authors		=> 'foxiepaws, Kovensky',
 	contact		=> 'fox@foxiepa.ws',
@@ -34,12 +26,16 @@ our $api_key = '4c563adf68bc357a4570d3e7986f6481';
 our $owner = "01";
 our $prefix = "-";
 our $getPlayer = 0;
+
+# templates ###############################################
 my $np_template = "'\x02{\$nick}\x02' is now playing{\" in \$player\" if defined \$player}: ".
                   "\x037\x02{\$artist}\x02\x03{\$album ? \" - \x037\x02\$album\x02\x03\" : \"\"} - \x037\x02{\$track}\x02\x3".
                   "{\" [\". (\$loved ? \"\x0304<3\x03 - \" : \"\") . \"played \${plays}x times]\" if \$plays}".
                   "{\@tags > 0 ? \" (\x0310\x02\".join(\"\x02\x03, \x0310\x02\",\@tags).\"\x02\x03)\" : \"\"}".
                   "{\" [\x037\x02\".(defined(\$pos) ? \$pos.\"/\" : \"\").\"\$len\x02\x03]\"}";
-
+my $compare_template = "";
+my $error_template   = "";
+# end templates ###########################################
 
 
 Irssi::settings_add_str("lfmb", "lfmb_owner", $owner);
@@ -347,40 +343,33 @@ sub whats_playing {
 	                                   map { nick_map $$_{nick} } $chan->nicks;
 }
 
-sub message_public {
-	my ($server, $text, $nick, $addr, $target) = @_;
-	my @cmd = split /\s+/, $text;
 
-	my $send = sub {
-	};
-	my $onick = $server->{nick};
-        if ($text =~ /$onick:np(:\w+)?/g) {
-            my $additional = $1;
-            $additional =~ s/://;
-            send_msg($server, $target, now_playing($nick, 1,(0, $additional)));
-        }
-
-	given ($cmd[0]) {
-		when ($prefix . 'np') { # now playing
-			send_msg($server, $target, now_playing($nick, 1, @cmd));
-			write_cache;
-		}
-		when ($prefix . 'wp') { # what's playing
-			if ($nick eq $owner) {
-				whats_playing($server, $target);
-				write_cache;
-			}
-		}
-		when ($prefix . 'compare') { # tasteometer comparison
-			unless (@cmd > 1) { send_msg($server, $target, ".compare needs someone to compare to") }
-			else {
-				my @users = (@cmd[1,2]);
-				unshift @users, $nick unless $cmd[2];
-				map { $_ = nick_map $_ } @users[0,1];
-				send_msg($server, $target, usercompare(@users));
-			}
-		}
-		when ($prefix . 'setuser') {
+# command functions ###################
+sub command_np {
+    my ($server, $target, $nick, @cmd) = @_;
+    send_msg($server, $target, now_playing($nick, 1, @cmd));
+    write_cache;
+}
+sub command_wp {
+    my ($server, $target,$nick) = @_;
+    if ($nick eq $owner) {
+        whats_playing($server, $target);
+        write_cache;
+    }
+}
+sub command_compare {
+    my ($server, $target, $nick, @cmd) = @_;
+    unless (@cmd > 1) { 
+        send_msg($server, $target, ".compare needs someone to compare to") 
+    } else {
+        my @users = (@cmd[1,2]);
+        unshift @users, $nick unless $cmd[2];
+        map { $_ = nick_map $_ } @users[0,1];
+        send_msg($server, $target, usercompare(@users));
+    }
+}
+sub command_setuser {
+    my ($server, $target, $nick, @cmd) = @_;
 			unless (@cmd > 1) { send_msg($server, $target, ".setuser needs a last.fm username") }
 			elsif($cmd[1] eq $nick) { send_msg($server, $target, "$nick: You already are yourself") }
 			else {
@@ -405,8 +394,10 @@ sub message_public {
 					send_msg($server, $target, "Could not find the '$username' last.fm account");
 				}
 			}
-		}
-		when ($prefix . 'deluser') {
+
+}
+sub command_deluser {
+    my ($server, $target, $nick, @cmd) = @_;
 			my $ircnick = $nick eq $owner ? ($cmd[1] // $nick) : $nick;
 			my $username = $$nick_user_map{$ircnick};
 			if ($username) {
@@ -422,8 +413,10 @@ sub message_public {
 			} else {
 				send_msg($server, $target, "Mapping for '$ircnick' doesn't exist");
 			}
-		}
-		when ($prefix . 'whois') {
+
+}
+sub command_whois {
+    my ($server, $target, $nick, @cmd) = @_;
 			unless (@cmd > 1) {
 				send_msg($server, $target, ".whois needs a last.fm username");
 				return;
@@ -449,14 +442,9 @@ sub message_public {
 			else {
 				send_msg($server, $target, "$user is only known as $user");
 			}
-		}
-        when ($prefix . 'source') {
-            send_msg($server, $target, "source: https://github.com/foxiepaws/lastfm.pl");
-        }
-		when ($prefix . 'version') {
-			send_msg($server, $target, "version: $VERSION - repo: https://github.com/foxiepaws/lastfm.pl");
-		}
-		when ($prefix . 'lastfm') {
+}
+sub command_lastfm {
+    my ($server, $target, $nick, @cmd) = @_;
 	send_msg($server, $target, "$nick: help will be PMed to you, be patient as other users may have also used this function.");			
 	my @help = (
 'Commands that access last.fm use the IRC nickname unless associated through .setuser.',
@@ -476,10 +464,54 @@ sub message_public {
 "$prefix\x02deluser\x02 nick      - removes the nick's association with his last.fm account",
 "$prefix\x02source\x02            - shows the source repo for the bot",
 );
-			for (@help) {
-				send_msg($server, $nick, $_);
-			}
-			send_msg($server, $target, "$nick: help PMed");
+    for (@help) {
+       send_msg($server, $nick, $_);
+    }
+    send_msg($server, $target, "$nick: help PMed");
+}
+# end command fucntions ###############
+
+sub message_public {
+	my ($server, $text, $nick, $addr, $target) = @_;
+	my @cmd = split /\s+/, $text;
+
+	my $send = sub {
+	};
+	my $onick = $server->{nick};
+    
+    if ($text =~ /$onick:np(:\w+)?/g) {
+        my $additional = $1;
+        $additional =~ s/://;
+        command_np($server, $target, $nick,(0, $additional));
+    }
+
+	given ($cmd[0]) {
+		when ($prefix . 'np') { # now playing
+            command_np($server,$target,$nick, @cmd);
+		}
+		when ($prefix . 'wp') { # what's playing
+            command_wp($server,$target,$nick);
+		}
+		when ($prefix . 'compare') { # tasteometer comparison
+            command_compare($server,$target,$nick,@cmd);
+		}
+		when ($prefix . 'setuser') {
+            command_setuser($server,$target,$nick,@cmd);
+		}
+		when ($prefix . 'deluser') {
+            command_deluser($server,$target,$nick,@cmd);
+		}
+		when ($prefix . 'whois') {
+            command_whois($server,$target,$nick,@cmd);
+		}
+        when ($prefix . 'source') {
+            send_msg($server, $target, "source: https://github.com/foxiepaws/lastfm.pl");
+        }
+		when ($prefix . 'version') {
+			send_msg($server, $target, "version: $VERSION - repo: https://github.com/foxiepaws/lastfm.pl");
+		}
+		when ($prefix . 'lastfm') {
+            command_lastfm($server,$target,$nick,@cmd);
 		}
 		default {
 			return;
@@ -491,6 +523,7 @@ sub message_own_public {
 	my ($server, $text, $target) = @_;
 	message_public( $server, $text, $server->{nick}, "localhost", $target );
 }
+
 sub rehash_conf {
 	$owner = Irssi::settings_get_str("lfmb_owner");
 	$prefix = Irssi::settings_get_str("lfmb_prefix");
