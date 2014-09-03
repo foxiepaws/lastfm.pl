@@ -537,7 +537,7 @@ sub rehash_conf {
     $defaultsite = Irssi::settings_get_str("lfmb_default_site");
     if ($defaultsite ne "lastfm" and $getPlayer > 0) {
         $getPlayer = 0;
-        croak "getPlayer only supports lastfm";
+        warn "getPlayer only supports lastfm";
         Irssi::settings_set_bool("lfmb_get_player", 0);
     }
 }
