@@ -9,7 +9,6 @@ use Encode;
 use Carp;
 use JSON::XS;
 use Text::Template qw(fill_in_string);
-use Data::Dumper;
 binmode STDOUT, ":utf8";
 # I'm gonna call 1.0 here, just because kovensky never had $VERSION.
 our $VERSION = '1.0.2';
@@ -32,10 +31,12 @@ our %IRSSI = (
 
 Irssi::settings_add_str("lfmb", "lfmb_owner", "01");
 Irssi::settings_add_str("lfmb", "lfmb_prefix", "-");
+Irssi::settings_add_bool("lfmb", "lfmb_get_player", 0);
 
 our $api_key = '4c563adf68bc357a4570d3e7986f6481';
 our $owner = "01";
 our $prefix = "-";
+our $getPlayer = 0;
 our $nick_user_map;
 our $user_nick_map = {}; # derived from $nick_user_map
 our $api_cache = {};
@@ -218,6 +219,7 @@ sub getPlayer ($) {
 	my $user = shift;
 	my $uri = "http://last.fm/user/$user";
 	my $response = $ua->get("$uri")->content;
+	print "Got Player";
 	$response =~ /Scrobbling from (?:<img capture="clienticon".*?\/>)?<span class="source"><a href=".*?">(.*?)<\/a><\/span>/;
 	return $1;
 }
@@ -263,7 +265,7 @@ sub get_user_np {
 			"The last played track is \x037\x02@{[_text $tracks[0]->{artist}]}\x03\x02 - \x037\x02$tracks[0]->{name}\x03\x02, back in @{[_text $tracks[0]->{date}]} UTC."));
 		}
 
-		$res{player} = getPlayer($user);
+		$res{player} = getPlayer($user) if ($getPlayer gt 0);
 		my $now = time;
 		if ($res{len} && $prevtime && ($now - $prevtime) <= $res{len}) {
 			$res{pos} = $now - $prevtime;
@@ -322,12 +324,12 @@ sub now_playing {
 	my $user = $cmd[1] ? $cmd[1] : $nick;
 	$user = nick_map $user;
 
-	my $cached = get_cache('accountless', $user);
-	return $ignerr ? _text $cached : undef if $cached;
+	#my $cached = get_cache('accountless', $user);
+	#return $ignerr ? _text $cached : undef if $cached;
 
 	my $np = get_user_np($user);
 	if ($$np{error}) {
-		set_cache('accountless', $user, $$np{error});
+		#set_cache('accountless', $user, $$np{error});
 		return $ignerr ? $$np{error} : undef;
 	}
 	elsif ($$np{warn}) { return $ignerr ? $$np{warn} : '' }
@@ -350,11 +352,11 @@ sub message_public {
 	my $send = sub {
 	};
 	my $onick = $server->{nick};
-    if ($text =~ /$onick:np(:\w+)?/g) {
-        my $additional = $1;
-        $additional =~ s/://;
-        send_msg($server, $target, now_playing($nick, 1,(0, $additional)));
-    }
+        if ($text =~ /$onick:np(:\w+)?/g) {
+            my $additional = $1;
+            $additional =~ s/://;
+            send_msg($server, $target, now_playing($nick, 1,(0, $additional)));
+        }
 
 	given ($cmd[0]) {
 		when ($prefix . 'np') { # now playing
@@ -490,6 +492,7 @@ sub message_own_public {
 sub rehash_conf {
 	$owner = Irssi::settings_get_str("lfmb_owner");
 	$prefix = Irssi::settings_get_str("lfmb_prefix");
+	$getPlayer = Irssi::settings_get_bool("lfmb_get_player");
 }
 
 &rehash_conf();
