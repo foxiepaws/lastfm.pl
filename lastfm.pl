@@ -26,11 +26,11 @@ our $api_key = '4c563adf68bc357a4570d3e7986f6481';
 our $owner = "01";
 our $prefix = "-";
 our $getPlayer = 0;
-our $defaultsite = "lastfm";
+our $defaultsite = "last.fm";
 
 our %sites = (
-    lastfm => "http://ws.audioscrobbler.com/2.0/?format=json&api_key=$api_key",
-    librefm => "http://libre.fm/2.0/?format=json"
+    "last.fm" => "http://ws.audioscrobbler.com/2.0/?format=json&api_key=$api_key",
+    "libre.fm" => "http://libre.fm/2.0/?format=json"
 );
 
 # templates ###############################################
@@ -230,7 +230,7 @@ sub usercompare {
 
 sub getPlayer ($) {
     my $user = shift;
-    my $uri = "http://last.fm/user/$user";
+    my $uri = "http://$defaultsite/user/$user";
     my $response = $ua->get("$uri")->content;
     print "Got Player";
     $response =~ /Scrobbling from (?:<img capture="clienticon".*?\/>)?<span class="source"><a href=".*?">(.*?)<\/a><\/span>/;
@@ -307,7 +307,8 @@ sub format_user_np {
                                            loved  => $$data{loved},
                                            tags   => $$data{tags},
                                            pos    => $$data{pos} ? _secs_to_mins($$data{pos}) : undef,
-                                           len    => _secs_to_mins($$data{len})
+                                           len    => _secs_to_mins($$data{len}),
+                                           site   => $defaultsite
                                          });
 }
 
@@ -377,7 +378,7 @@ sub command_compare {
 sub command_setuser {
     my ($server, $target, $nick, @cmd) = @_;
     unless (@cmd > 1) { 
-        send_msg($server, $target, ".setuser needs a last.fm username")
+        send_msg($server, $target, ".setuser needs a $defaultsite username")
     } elsif($cmd[1] eq $nick) { 
         send_msg($server, $target, "$nick: You already are yourself") 
     } else {
@@ -389,18 +390,18 @@ sub command_setuser {
                 $username = $cmd[2];
                 $ircnick = $cmd[1];
             } else {
-                send_msg($server, $target, "You can only associate your own nick. Use .setuser your_last_fm_username");
+                send_msg($server, $target, "You can only associate your own nick. Use .setuser your_${defaultsite}_username");
                 return;
             }
         }
         my $data = get_last_fm_data($sites{$defaultsite}, 'user.getrecenttracks', limit => 1, user => $username );
         if ($data && $$data{recenttracks}{track}) {
-            send_msg($server, $target, "'$ircnick' is now associated with http://last.fm/user/$username");
+            send_msg($server, $target, "'$ircnick' is now associated with http://$defaultsite/user/$username");
             $$nick_user_map{$ircnick} = $username;
             $$user_nick_map{$username}{$ircnick} = 1;
             write_cache;
         } else {
-            send_msg($server, $target, "Could not find the '$username' last.fm account");
+            send_msg($server, $target, "Could not find the '$username' $defaultsite account");
         }
     }
 }
@@ -425,48 +426,48 @@ sub command_deluser {
 sub command_whois {
     my ($server, $target, $nick, @cmd) = @_;
     unless (@cmd > 1) {
-        send_msg($server, $target, ".whois needs a last.fm username");
+        send_msg($server, $target, ".whois needs a $defaultsite username");
         return;
     }
     my $user = $cmd[1];
-    my $nick = $$nick_user_map{$user};
+    my $ircnick = $$nick_user_map{$user};
     if (my $map = $$user_nick_map{$user}) {
         my @nicks = sort keys %$map;
         my $end = pop @nicks;
         my $list = join ', ', @nicks;
         $list = $list ? "$list and $end" : $end;
         send_msg($server, $target, "$user is also known as $list");
-    } elsif ($nick) {
-        my $map = $$user_nick_map{$nick};
-        my @nicks = sort grep { $_ ne $user and $_ ne $nick } keys %$map;
+    } elsif ($ircnick) {
+        my $map = $$user_nick_map{$ircnick};
+        my @nicks = sort grep { $_ ne $user and $_ ne $ircnick } keys %$map;
         my $end = pop @nicks;
         my $list = join ', ', @nicks;
-        my $main = $list || $end ? " ($nick)" : "";
-        $list = $end && $list ? "$list and $end" : $end ? $end : $list ? "" : $nick;
+        my $main = $list || $end ? " ($ircnick)" : "";
+        $list = $end && $list ? "$list and $end" : $end ? $end : $list ? "" : $ircnick;
         send_msg($server, $target, "$user$main is also known as $list");
     } else {
         send_msg($server, $target, "$user is only known as $user");
     }
 }
-sub command_lastfm {
+sub command_help {
     my ($server, $target, $nick, @cmd) = @_;
     send_msg($server, $target, "$nick: help will be PMed to you, be patient as other users may have also used this function.");            
     my @help = (
-'Commands that access last.fm use the IRC nickname unless associated through .setuser.',
+"Commands that access $defaultsite use the IRC nickname unless associated through ${prefix}\x02setuser\x02.",
 'Unlike IRC, all names are CASE SENSITIVE.',
 'Commands:',
 "$prefix\x02np\x02 [username]     - shows your currently playing song, or of another user if specified",
 "$prefix\x02compare\x02 u1 [u2]   - compares yourself with u1 (another user) if u2 isn't specified",
 "                     compares u1 with u2 if both are given.",
-"$prefix\x02setuser\x02 user      - associates the \"user\" last.fm username with your nickname.",
+"$prefix\x02setuser\x02 user      - associates the \"user\" $defaultsite username with your nickname.",
 "                     the two argument form is only available to the owner.",
-"$prefix\x02whois\x02 username    - given a last.fm username, return all nicknames that are associated to it.",
-"$prefix\x02deluser\x02           - removes your last.fm association.",
+"$prefix\x02whois\x02 username    - given a $defaultsite username, return all nicknames that are associated to it.",
+"$prefix\x02deluser\x02           - removes your $defaultsite association.",
 "                     the form with argument is only available to the owner.",
 "Owner-only commands:",
 "$prefix\x02wp\x02                - shows everyone's currently playing song",
-"$prefix\x02setuser\x02 nick user - associates the nick with the specified last.fm user",
-"$prefix\x02deluser\x02 nick      - removes the nick's association with his last.fm account",
+"$prefix\x02setuser\x02 nick user - associates the nick with the specified $defaultsite user",
+"$prefix\x02deluser\x02 nick      - removes the nick's association with his $defaultsite account",
 "$prefix\x02source\x02            - shows the source repo for the bot",
 );
     for (@help) {
@@ -515,8 +516,8 @@ sub message_public {
         when ($prefix . 'version') {
             send_msg($server, $target, "version: $VERSION - repo: https://github.com/foxiepaws/lastfm.pl");
         }
-        when ($prefix . 'lastfm') {
-            command_lastfm($server,$target,$nick,@cmd);
+        when ($prefix . 'help') {
+            command_help($server,$target,$nick,@cmd);
         }
         default {
             return;
