@@ -26,6 +26,12 @@ our $api_key = '4c563adf68bc357a4570d3e7986f6481';
 our $owner = "01";
 our $prefix = "-";
 our $getPlayer = 0;
+our $defaultsite = "lastfm";
+
+our %sites = (
+    lastfm => "http://ws.audioscrobbler.com/2.0/?format=json&api_key=$api_key",
+    librefm => "http://libre.fm/2.0/?format=json"
+);
 
 # templates ###############################################
 my $np_template = "'\x02{\$nick}\x02' is now playing{\" in \$player\" if defined \$player}: ".
@@ -34,7 +40,6 @@ my $np_template = "'\x02{\$nick}\x02' is now playing{\" in \$player\" if defined
                   "{\@tags > 0 ? \" (\x0310\x02\".join(\"\x02\x03, \x0310\x02\",\@tags).\"\x02\x03)\" : \"\"}".
                   "{\" [\x037\x02\".(defined(\$pos) ? \$pos.\"/\" : \"\").\"\$len\x02\x03]\"}";
 my $compare_template = "";
-my $error_template   = "";
 # end templates ###########################################
 
 
@@ -42,6 +47,7 @@ Irssi::settings_add_str("lfmb", "lfmb_owner", $owner);
 Irssi::settings_add_str("lfmb", "lfmb_prefix", $prefix);
 Irssi::settings_add_bool("lfmb", "lfmb_get_player", $getPlayer);
 Irssi::settings_add_str("lfmb", "lfmb_np_output", $np_template);
+Irssi::settings_add_str("lfmb", "lfmb_default_site", $defaultsite);
 
 our $nick_user_map;
 our $user_nick_map = {}; # derived from $nick_user_map
@@ -175,11 +181,12 @@ sub artist_gettoptags { # for artist.gettoptags API call
     my $tag = 'artist.gettoptags';
 
     return upd_cache($tag, $name, sub {
-        get_last_fm_data($tag, $$res{arid} ? 'mbid' : 'artist',  $name);
+        get_last_fm_data($sites{$defaultsite},$tag, $$res{arid} ? 'mbid' : 'artist',  $name);
     });
 }
 
 sub get_last_fm_data {
+    my $site = shift;
     my $method = shift;
     my %params;
     if( $_[0] && ref $_[0] eq 'HASH' ) {
@@ -200,16 +207,16 @@ sub get_last_fm_data {
     } else {
         $reqcount++;
     }
-    my $resp = $ua->get("http://ws.audioscrobbler.com/2.0/?format=json&api_key=$api_key&method=$method$paramstr");
+    my $resp = $ua->get("${site}&method=${method}${paramstr}");
     return decode_json $resp->content if $resp->is_success;
     undef;
 }
 
 sub usercompare {
     my @user = @_[0,1];
-
+    
     my $str = "'$user[0]' vs '$user[1]': ";
-    my $data = get_last_fm_data( 'tasteometer.compare', type1 => 'user', type2 => 'user',
+    my $data = get_last_fm_data($sites{$defaultsite}, 'tasteometer.compare', type1 => 'user', type2 => 'user',
                                                         value1 => $user[0], value2 => $user[1] );
     return "Error comparing $user[0] with $user[1]" unless $data && $$data{comparison}{result};
     my $res = $$data{comparison}{result};
@@ -234,12 +241,12 @@ sub get_user_np {
     my $user = shift;
 
     my %res;
-    my $data = get_last_fm_data( 'user.getrecenttracks', limit => 1, user => $user );
+    my $data = get_last_fm_data($sites{$defaultsite}, 'user.getrecenttracks', limit => 1, user => $user );
     my ($prevtime, $prevlen);
     if( $data && (my $tracks = $$data{recenttracks}{track}) ) {
         my @tracks = (ref $tracks eq 'ARRAY' ? @$tracks : $tracks);
         for( @tracks ) {
-            my $info = get_last_fm_data( 'track.getinfo', username => $user,
+            my $info = get_last_fm_data($sites{$defaultsite}, 'track.getinfo', username => $user,
                                           $$_{mbid} ? 'mbid' : 'track', $$_{mbid} ? $$_{mbid} : $$_{name},
                        $$_{mbid} ? () : (artist => _text $$_{artist}));
             if( $$_{'@attr'}{nowplaying} ) {
@@ -343,7 +350,6 @@ sub whats_playing {
                                        map { nick_map $$_{nick} } $chan->nicks;
 }
 
-
 # command functions ###################
 sub command_np {
     my ($server, $target, $nick, @cmd) = @_;
@@ -387,7 +393,7 @@ sub command_setuser {
                 return;
             }
         }
-        my $data = get_last_fm_data( 'user.getrecenttracks', limit => 1, user => $username );
+        my $data = get_last_fm_data($sites{$defaultsite}, 'user.getrecenttracks', limit => 1, user => $username );
         if ($data && $$data{recenttracks}{track}) {
             send_msg($server, $target, "'$ircnick' is now associated with http://last.fm/user/$username");
             $$nick_user_map{$ircnick} = $username;
@@ -528,6 +534,12 @@ sub rehash_conf {
     $prefix = Irssi::settings_get_str("lfmb_prefix");
     $getPlayer = Irssi::settings_get_bool("lfmb_get_player");
     $np_template = Irssi::settings_get_str("lfmb_np_output");
+    $defaultsite = Irssi::settings_get_str("lfmb_default_site");
+    if ($defaultsite ne "lastfm" and $getPlayer > 0) {
+        $getPlayer = 0;
+        croak "getPlayer only supports lastfm";
+        Irssi::settings_set_bool("lfmb_get_player", 0);
+    }
 }
 
 &rehash_conf();
