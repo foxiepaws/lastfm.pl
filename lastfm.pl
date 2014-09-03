@@ -9,9 +9,10 @@ use Encode;
 use Carp;
 use JSON::XS;
 use Text::Template qw(fill_in_string);
+
 binmode STDOUT, ":utf8";
-# I'm gonna call 1.0 here, just because kovensky never had $VERSION.
-our $VERSION = '1.0.2';
+
+our $VERSION = '2.0.0-alpha';
 
 # hack: get git version 
 my $path = __FILE__;
