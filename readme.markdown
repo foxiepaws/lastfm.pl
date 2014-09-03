@@ -1,6 +1,6 @@
 # lastfm.pl
 
-
+A lastfm (and librefm!) bot written in perl for Irssi.
 
 ## Installing
 
@@ -39,7 +39,8 @@ Unlike IRC, all names are CASE SENSITIVE.
 
 all commands have a prefix, this is set in irssi using /set lfmb_prefix <prefix>
 
-### Everyone:
+### Everyone
+
   - np [username]     
    - shows your currently playing song, or of another user if specified
   - compare u1 [u2]
@@ -55,7 +56,7 @@ all commands have a prefix, this is set in irssi using /set lfmb_prefix <prefix>
   - version
    - shows the current version of the bot 
 
-### Owner-only:
+### Owner-only
  - wp                - shows everyone's currently playing song
  - setuser nick user - associates the nick with the specified last.fm user
  - deluser nick      - removes the nick's association with his last.fm account
@@ -67,3 +68,8 @@ all commands have a prefix, this is set in irssi using /set lfmb_prefix <prefix>
  To use these commands you use `<botnick>:<command>`, arguments can be added after 
  with another colon. 
 
+## Authors
+
+ * code: Original code by Kovensky, additional code by foxiepaws
+ * texts: Kovensky, foxiepaws, michaelharker, mkaysi
+ 
