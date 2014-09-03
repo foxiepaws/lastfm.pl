@@ -29,14 +29,23 @@ our %IRSSI = (
 );
 
 
-Irssi::settings_add_str("lfmb", "lfmb_owner", "01");
-Irssi::settings_add_str("lfmb", "lfmb_prefix", "-");
-Irssi::settings_add_bool("lfmb", "lfmb_get_player", 0);
-
 our $api_key = '4c563adf68bc357a4570d3e7986f6481';
 our $owner = "01";
 our $prefix = "-";
 our $getPlayer = 0;
+my $np_template = "'\x02{\$nick}\x02' is now playing{\" in \$player\" if defined \$player}: ".
+                  "\x037\x02{\$artist}\x02\x03{\$album ? \" - \x037\x02\$album\x02\x03\" : \"\"} - \x037\x02{\$track}\x02\x3".
+                  "{\" [\". (\$loved ? \"\x0304<3\x03 - \" : \"\") . \"played \${plays}x times]\" if \$plays}".
+                  "{\@tags > 0 ? \" (\x0310\x02\".join(\"\x02\x03, \x0310\x02\",\@tags).\"\x02\x03)\" : \"\"}".
+                  "{\" [\x037\x02\".(defined(\$pos) ? \$pos.\"/\" : \"\").\"\$len\x02\x03]\"}";
+
+
+
+Irssi::settings_add_str("lfmb", "lfmb_owner", $owner);
+Irssi::settings_add_str("lfmb", "lfmb_prefix", $prefix);
+Irssi::settings_add_bool("lfmb", "lfmb_get_player", $getPlayer);
+Irssi::settings_add_str("lfmb", "lfmb_np_output", $np_template);
+
 our $nick_user_map;
 our $user_nick_map = {}; # derived from $nick_user_map
 our $api_cache = {};
@@ -223,9 +232,6 @@ sub getPlayer ($) {
 	$response =~ /Scrobbling from (?:<img capture="clienticon".*?\/>)?<span class="source"><a href=".*?">(.*?)<\/a><\/span>/;
 	return $1;
 }
-	
-	
-	
 
 sub get_user_np {
 	my $user = shift;
@@ -286,11 +292,6 @@ sub _secs_to_mins {
 sub format_user_np {
 	my ($user, $data) = @_;
     
-    my $np_template = "'\x02{\$nick}\x02' is now playing{\" in \$player\" if defined \$player}: ".
-                      "\x037\x02{\$artist}\x02\x03{\$album ? \" - \x037\x02\$album\x02\x03\" : \"\"} - \x037\x02{\$track}\x02\x3".
-                      "{\" [\". (\$loved ? \"\x0304<3\x03 - \" : \"\") . \"played \${plays}x times]\" if \$plays}".
-                      "{\@tags > 0 ? \" (\x0310\x02\".join(\"\x02\x03, \x0310\x02\",\@tags).\"\x02\x03)\" : \"\"}".
-                      "{\" [\x037\x02\".(defined(\$pos) ? \$pos.\"/\" : \"\").\"\$len\x02\x03]\"}";
 
     return
     fill_in_string($np_template, HASH => { nick => $user, 
@@ -493,6 +494,7 @@ sub rehash_conf {
 	$owner = Irssi::settings_get_str("lfmb_owner");
 	$prefix = Irssi::settings_get_str("lfmb_prefix");
 	$getPlayer = Irssi::settings_get_bool("lfmb_get_player");
+    $np_template = Irssi::settings_get_str("lfmb_np_output");
 }
 
 &rehash_conf();
