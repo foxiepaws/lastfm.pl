@@ -7,8 +7,9 @@ use LWP::UserAgent;
 use List::MoreUtils qw{uniq};
 use Encode;
 use Carp;
-use JSON;
-
+use JSON::XS;
+use Text::Template qw(fill_in_string);
+use Data::Dumper;
 binmode STDOUT, ":utf8";
 # I'm gonna call 1.0 here, just because kovensky never had $VERSION.
 our $VERSION = '1.0.2';
@@ -282,21 +283,25 @@ sub _secs_to_mins {
 
 sub format_user_np {
 	my ($user, $data) = @_;
+    
+    my $np_template = "'\x02{\$nick}\x02' is now playing{\" in \$player\" if defined \$player}: ".
+                      "\x037\x02{\$artist}\x02\x03{\$album ? \" - \x037\x02\$album\x02\x03\" : \"\"} - \x037\x02{\$track}\x02\x3".
+                      "{\" [\". (\$loved ? \"\x0304<3\x03 - \" : \"\") . \"played \${plays}x times]\" if \$plays}".
+                      "{\@tags > 0 ? \" (\x0310\x02\".join(\"\x02\x03, \x0310\x02\",\@tags).\"\x02\x03)\" : \"\"}".
+                      "{\" [\x037\x02\".(defined(\$pos) ? \$pos.\"/\" : \"\").\"\$len\x02\x03]\"}";
 
-	my $str = "'\x02$user\x02' is now playing";
-	if (defined $$data{player}) { $str .= " in $$data{player}: "; } 
-	else { $str .= ": " }
-	$str .= "\x037\x02$$data{artist}\x02\x03 - ";
-	$str .= "\x037\x02$$data{album}\x02\x03 - " if $$data{album};
-	$str .= "\x037\x02" . $$data{name} . "\x02\x03";
-	if($$data{count}) {
-		$str .= " [". ($$data{loved} ? "\x0304<3\x03 - " : "") ."playcount $$data{count}x]" ;
-	}
-	$str .= " (\x0310\x02". join( "\x02\x03, \x0310\x02", @{$$data{tags}} ) ."\x02\x03)" if $$data{tags} && @{$$data{tags}};
-	$str .= " [\x037\x02";
-	$str .= _secs_to_mins($$data{pos}) . "/" if $$data{pos};
-	$str .= _secs_to_mins($$data{len}) . "\x02\x03]";
-	return $str;
+    return
+    fill_in_string($np_template, HASH => { nick => $user, 
+                                           player => $$data{player}, 
+                                           artist => $$data{artist},
+                                           album  => $$data{album} ? $$data{album} : undef,
+                                           track  => $$data{name},
+                                           plays  => $$data{count},
+                                           loved  => $$data{loved},
+                                           tags   => $$data{tags},
+                                           pos    => $$data{pos} ? _secs_to_mins($$data{pos}) : undef,
+                                           len    => _secs_to_mins($$data{len})
+                                         });
 }
 
 $SIG{INT} = sub { write_cache; exit };
