@@ -4,6 +4,12 @@
 
 ## Installing
 
+ 1. Install `irssi` with Perl support.
+ 2. Install `Text::Template`, `JSON::XS`, `List::MoreUtils`, and `LWP::UserAgent`.
+ 3. Move `lastfm.pl` to your `.irssi/scripts` directory.
+ 4. Start `irssi`
+ 5. `/run ~/.irssi/scripts/lastfm.pl`
+ 6. Set your settings as needed.
 
 ## Settings
 all settings are stored under lfmb
